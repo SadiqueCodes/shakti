@@ -1,0 +1,37 @@
+name: live_safe_app
+description: A Flutter application replicating a safety app with emergency features.
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  image_picker: ^0.8.9
+  carousel_slider: ^5.0.0
+  url_launcher: ^6.1.9
+  provider: ^6.0.0
+  shared_preferences: ^2.0.15
+  geolocator: ^13.0.1
+  permission_handler: ^11.3.1
+  contacts_service: ^0.6.3
+  badges: ^3.1.2 
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets\asset\fonts\Poppins-Regular.ttf
+        - asset: assets\asset\fonts\Poppins-Bold.ttf
+          weight: 700
+  assets:
+    - assets/images1.jpg 
+    - assets/default_user.jpg
+    - assets/images3.png
+   
