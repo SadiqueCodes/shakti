@@ -1,14 +1,12 @@
-// emergency_card_widget.dart
-
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auto_alert_page.dart'; // Ensure the path is correct
 
 class EmergencyCardWidget extends StatelessWidget {
   final List<Map<String, String>> emergencyCards = [
-    {'title': 'Women Helpline', 'number': 'tel:1091'},
-    {'title': 'Ambulance', 'number': 'tel:102'},
-    {'title': 'Auto Alert', 'number': ''}, // No number for Auto Alert
+    {'title': 'Women Helpline', 'number': 'tel:1091', 'icon': 'female'}, // Female icon for Women Helpline
+    {'title': 'Ambulance', 'number': 'tel:102', 'icon': 'ambulance'}, // Ambulance icon
+    {'title': 'Auto Alert', 'number': '', 'icon': 'alert'}, // Alert icon for Auto Alert
   ];
 
   final List<Map<String, String>> emergencyContacts; // List of emergency contacts
@@ -24,6 +22,23 @@ class EmergencyCardWidget extends StatelessWidget {
         itemCount: emergencyCards.length,
         itemBuilder: (context, index) {
           final item = emergencyCards[index];
+          IconData? cardIcon;
+
+          // Set appropriate icons based on the card title
+          switch (item['icon']) {
+            case 'female':
+              cardIcon = Icons.female; // Icon for Women Helpline
+              break;
+            case 'ambulance':
+              cardIcon = Icons.local_hospital; // Icon for Ambulance
+              break;
+            case 'alert':
+              cardIcon = Icons.battery_alert; // Icon for Auto Alert
+              break;
+            default:
+              cardIcon = Icons.warning; // Default warning icon
+          }
+
           return GestureDetector(
             onTap: () {
               if (item['title'] == 'Auto Alert') {
@@ -63,7 +78,7 @@ class EmergencyCardWidget extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.warning, size: 50, color: Colors.white),
+                    Icon(cardIcon, size: 50, color: Colors.white), // Dynamic icon based on card title
                     const SizedBox(height: 10),
                     Text(
                       item['title']!,

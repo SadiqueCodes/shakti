@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AutoAlertPage extends StatefulWidget {
   final List<Map<String, String>> emergencyContacts;
-  final Function(bool) onToggle; // Callback for activation/deactivation
+  final Function(bool) onToggle;
 
   AutoAlertPage({
     Key? key,
@@ -15,22 +16,52 @@ class AutoAlertPage extends StatefulWidget {
 }
 
 class _AutoAlertPageState extends State<AutoAlertPage> {
-  double _selectedBatteryPercentage = 0; // Slider value
-  bool _isActivated = false; // Activation status
-  List<bool> _selectedContacts = []; // Track selected contacts
+  double _selectedBatteryPercentage = 0;
+  bool _isActivated = false;
+  List<bool> _selectedContacts = [];
 
   @override
   void initState() {
     super.initState();
-    // Initialize the selected contacts list based on the number of emergency contacts
-    _selectedContacts = List<bool>.filled(widget.emergencyContacts.length, false);
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedBatteryPercentage = prefs.getDouble('batteryPercentage') ?? 0;
+      _isActivated = prefs.getBool('isActivated') ?? false;
+
+      // Load the selected contacts state
+      final savedContacts = prefs.getStringList('selectedContacts') ?? [];
+      
+      // Initialize _selectedContacts list
+      _selectedContacts = List<bool>.filled(widget.emergencyContacts.length, false);
+      
+      for (int i = 0; i < savedContacts.length && i < _selectedContacts.length; i++) {
+        _selectedContacts[i] = savedContacts[i] == 'true';
+      }
+    });
+  }
+
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('batteryPercentage', _selectedBatteryPercentage);
+    await prefs.setBool('isActivated', _isActivated);
+
+    // Save the selected contacts state
+    await prefs.setStringList(
+      'selectedContacts',
+      _selectedContacts.map((isSelected) => isSelected.toString()).toList(),
+    );
   }
 
   void _toggleActivation() {
     setState(() {
-      _isActivated = !_isActivated; // Toggle the activation state
+      _isActivated = !_isActivated;
     });
-    widget.onToggle(_isActivated); // Notify the parent
+    widget.onToggle(_isActivated);
+    _savePreferences(); // Save the state when toggling activation
   }
 
   @override
@@ -43,7 +74,7 @@ class _AutoAlertPageState extends State<AutoAlertPage> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // Align contents to the start
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Select Battery Percentage:',
@@ -59,6 +90,7 @@ class _AutoAlertPageState extends State<AutoAlertPage> {
                 setState(() {
                   _selectedBatteryPercentage = value;
                 });
+                _savePreferences(); // Save the selected percentage when it changes
               },
             ),
             SizedBox(height: 20),
@@ -81,8 +113,9 @@ class _AutoAlertPageState extends State<AutoAlertPage> {
                         value: _selectedContacts[index],
                         onChanged: (bool? value) {
                           setState(() {
-                            _selectedContacts[index] = value ?? false; // Update the selection status
+                            _selectedContacts[index] = value ?? false;
                           });
+                          _savePreferences(); // Save the selected contacts state
                         },
                       ),
                     ),
@@ -90,18 +123,17 @@ class _AutoAlertPageState extends State<AutoAlertPage> {
                 },
               ),
             ),
-            // Add space before the button
             SizedBox(height: 20),
-            Center( // Center the button
+            Center(
               child: ElevatedButton(
                 onPressed: _toggleActivation,
                 child: Text(
                   _isActivated ? 'Deactivate' : 'Activate',
-                  style: TextStyle(color: Colors.white), // Make text white
+                  style: TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.pink,
-                  minimumSize: Size(double.infinity, 50), // Make button full-width
+                  minimumSize: Size(double.infinity, 50),
                 ),
               ),
             ),
