@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart'; // For input formatters
 import 'home_page.dart';
-import 'login_page.dart'; // To reset back to login page after password reset
+import 'package:flutter/services.dart'; // For TextInputFormatter
 
 class LoginPage extends StatefulWidget {
   @override
@@ -11,9 +10,10 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _isFirstTime = true;
-  String _greetName = "";
+
+  bool _isLoginMode = true; // Toggle between login and register
 
   @override
   void initState() {
@@ -24,171 +24,202 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _checkIfLoggedIn() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool? isLoggedIn = prefs.getBool('isLoggedIn');
-    String? savedName = prefs.getString('name');
-    if (isLoggedIn == true && savedName != null) {
-      setState(() {
-        _isFirstTime = false; // Not first time anymore
-        _greetName = savedName; // Greet the user with their name
-      });
+    if (isLoggedIn == true) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomePage()),
+      );
     }
   }
 
-  Future<void> _saveUserData() async {
+  Future<void> _registerUser() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('name', _nameController.text);
+    await prefs.setString('email', _emailController.text);
     await prefs.setString('password', _passwordController.text);
-    await prefs.setBool('isLoggedIn', true); // Mark the user as logged in
+    await prefs.setString('securityAnswer', "mySecurityAnswer"); // Hardcoded for simplicity
+    await prefs.setString('securityQuestion', "Pet Name"); // Assuming a default security question
+    await prefs.setBool('isLoggedIn', true);
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => HomePage()),
     );
   }
 
-  void _validateAndProceed() {
-    if (_isFirstTime) {
-      // First time user: name and password are required
-      if (_nameController.text.isEmpty || _passwordController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Please enter your name and a 4-digit password')),
-        );
-      } else if (_passwordController.text.length != 4 || !RegExp(r'^\d{4}$').hasMatch(_passwordController.text)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Password must be 4 digits')),
-        );
-      } else {
-        _saveUserData();
-      }
-    } else {
-      // Returning user: only ask for password
-      _validateReturningUser();
-    }
-  }
-
-  Future<void> _validateReturningUser() async {
+  Future<void> _loginUser() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? savedEmail = prefs.getString('email');
     String? savedPassword = prefs.getString('password');
 
-    if (_passwordController.text == savedPassword) {
-      // Password is correct, proceed
+    if (_emailController.text == savedEmail && _passwordController.text == savedPassword) {
+      await prefs.setBool('isLoggedIn', true);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => HomePage()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Incorrect password. Try again.')),
+        SnackBar(content: Text('Incorrect email or password.')),
       );
     }
   }
 
-  Future<void> _forgotPassword() async {
+  // Email validation regex
+  bool _isValidEmail(String email) {
+    String pattern =
+        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
+    RegExp regExp = RegExp(pattern);
+    return regExp.hasMatch(email);
+  }
+
+  void _validateAndProceed() {
+    if (_emailController.text.isEmpty ||
+        !_isValidEmail(_emailController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter a valid email address.')),
+      );
+      return;
+    }
+
+    if (_isLoginMode) {
+      _loginUser();
+    } else {
+      if (_nameController.text.isNotEmpty &&
+          _emailController.text.isNotEmpty &&
+          _passwordController.text.isNotEmpty) {
+        _registerUser();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('All fields are required.')),
+        );
+      }
+    }
+  }
+
+  // Forgot Password Dialog
+  void _showForgotPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        TextEditingController _emailForPasswordReset = TextEditingController();
+        return AlertDialog(
+          title: Text("Forgot Password"),
+          content: TextField(
+            controller: _emailForPasswordReset,
+            decoration: InputDecoration(labelText: "Enter your email"),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                String? savedEmail = prefs.getString('email');
+                if (_emailForPasswordReset.text == savedEmail) {
+                  Navigator.of(context).pop();
+                  _showSecurityQuestionDialog();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Email not registered.")),
+                  );
+                }
+              },
+              child: Text("Verify"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Cancel"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show Security Question
+  void _showSecurityQuestionDialog() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? securityQuestion = prefs.getString('securityQuestion');
-    String? securityAnswer = prefs.getString('securityAnswer');
-
-    if (securityQuestion != null && securityAnswer != null) {
-      final TextEditingController _answerController = TextEditingController();
-
-      // Ask for the security question answer
-      String? userAnswer = await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Forgot Password'),
+    String? savedSecurityQuestion = prefs.getString('securityQuestion') ?? 'Pet Name'; // Fetch the saved security question
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        TextEditingController _securityAnswerController = TextEditingController();
+        return AlertDialog(
+          title: Text("Security Question"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(securityQuestion),
+              Text("Question: $savedSecurityQuestion"), // Display the user's saved security question
               TextField(
-                controller: _answerController,
-                decoration: InputDecoration(labelText: 'Your answer'),
+                controller: _securityAnswerController,
+                decoration: InputDecoration(labelText: "Enter your answer"),
               ),
             ],
           ),
           actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop(_answerController.text); // Pass the entered answer
+            TextButton(
+              onPressed: () async {
+                String? savedSecurityAnswer = prefs.getString('securityAnswer');
+                
+                if (_securityAnswerController.text == savedSecurityAnswer) {
+                  Navigator.of(context).pop();
+                  _showResetPasswordDialog();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Incorrect answer.")),
+                  );
+                }
               },
-              child: Text('Submit'),
+              child: Text("Verify"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Cancel"),
             ),
           ],
-        ),
-      );
+        );
+      },
+    );
+  }
 
-      // Check if the entered answer matches the stored security answer
-      if (userAnswer == securityAnswer) {
-        final TextEditingController _newPasswordController = TextEditingController();
-        final TextEditingController _confirmPasswordController = TextEditingController();
-
-        // Allow the user to reset the password
-        String? newPassword = await showDialog<String>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Reset Password'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _newPasswordController,
-                  decoration: InputDecoration(labelText: 'Enter new 4-digit password'),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(4),
-                  ],
-                ),
-                TextField(
-                  controller: _confirmPasswordController,
-                  decoration: InputDecoration(labelText: 'Re-enter new password'),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(4),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () {
-                  if (_newPasswordController.text == _confirmPasswordController.text) {
-                    Navigator.of(context).pop(_newPasswordController.text); // Pass the new password
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Passwords do not match')),
-                    );
-                  }
-                },
-                child: Text('Reset Password'),
-              ),
-            ],
+  // Show Reset Password Dialog
+  void _showResetPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        TextEditingController _newPasswordController = TextEditingController();
+        return AlertDialog(
+          title: Text("Reset Password"),
+          content: TextField(
+            controller: _newPasswordController,
+            decoration: InputDecoration(labelText: "Enter new password"),
+            obscureText: true,
           ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                await prefs.setString('password', _newPasswordController.text);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Password updated successfully.")),
+                );
+                Navigator.of(context).pop();
+              },
+              child: Text("Update Password"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Cancel"),
+            ),
+          ],
         );
-
-        if (newPassword != null && newPassword.length == 4) {
-          await prefs.setString('password', newPassword);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Password has been reset.')),
-          );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => LoginPage()), // Return to login page
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Password must be 4 digits.')),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Incorrect answer to the security question.')),
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No security question set.')),
-      );
-    }
+      },
+    );
   }
 
   @override
@@ -201,65 +232,52 @@ class _LoginPageState extends State<LoginPage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // App logo
             CircleAvatar(
               radius: 50,
               backgroundImage: NetworkImage('https://cdn-icons-png.flaticon.com/512/6174/6174454.png'),
             ),
             SizedBox(height: 30),
             Text(
-              _isFirstTime ? 'Welcome to Shakti Mitr!' : 'Welcome back, $_greetName!',
+              _isLoginMode ? 'Welcome Back!' : 'Create an Account',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                fontFamily: 'Poppins',
               ),
             ),
-            SizedBox(height: 30),
-            
-            if (_isFirstTime)
+            SizedBox(height: 20),
+            if (!_isLoginMode)
               TextField(
                 controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                  ),
-                ),
+                decoration: InputDecoration(labelText: 'Name'),
               ),
-            SizedBox(height: _isFirstTime ? 20 : 0),
-            
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+            ),
             TextField(
               controller: _passwordController,
-              decoration: InputDecoration(
-                labelText: _isFirstTime ? 'Create a 4-digit Password' : 'Enter your 4-digit Password',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly, // Only allow numbers
-                LengthLimitingTextInputFormatter(4), // Limit to 4 digits
-              ],
-              obscureText: true, // For password security
+              decoration: InputDecoration(labelText: 'Password'),
+              obscureText: true,
             ),
-            SizedBox(height: 30),
+            SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _validateAndProceed, // Validation before proceeding
+              onPressed: _validateAndProceed,
+              child: Text(_isLoginMode ? 'Login' : 'Register'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isLoginMode = !_isLoginMode;
+                });
+              },
               child: Text(
-                _isFirstTime ? 'Register' : 'Login',
-                style: TextStyle(fontSize: 18, fontFamily: 'Poppins'),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.yellow[700],
-                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 50),
+                _isLoginMode ? "Don't have an account? Register" : "Already have an account? Login",
               ),
             ),
-            if (!_isFirstTime) // Show forgot password option only for returning users
+            if (_isLoginMode)
               TextButton(
-                onPressed: _forgotPassword,
-                child: Text('Forgot Password?'),
+                onPressed: _showForgotPasswordDialog,
+                child: Text("Forgot Password?"),
               ),
           ],
         ),

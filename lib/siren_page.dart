@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // To use SystemChrome.setEnabledSystemUIMode
 import 'package:geolocator/geolocator.dart'; // Geolocation
-import 'package:http/http.dart' as http; // For sending HTTP requests
-import 'dart:convert'; // For JSON encoding/decoding
+import 'package:url_launcher/url_launcher.dart'; // For dialing phone numbers
 
 class SirenPage extends StatefulWidget {
   final List<Map<String, String>> emergencyContacts; // Add this to store contacts
@@ -33,37 +32,44 @@ class _SirenPageState extends State<SirenPage> {
       double latitude = position.latitude;
       double longitude = position.longitude;
 
-      // Replace with your backend URL
-      String url = 'https://your-backend-url.com/api/alert'; // Update this URL
+      String message = 'Emergency! I need help. My current location is: https://maps.google.com/?q=$latitude,$longitude';
 
-      // Prepare the data to send
-      Map<String, dynamic> data = {
-        'latitude': latitude,
-        'longitude': longitude,
-        'radius': 600, // Radius in meters
-        'contacts': widget.emergencyContacts.map((contact) => contact['number']?.substring(4)).toList(), // Extract phone numbers without 'tel:'
-      };
+      // Iterate through all emergency contacts and send the alert
+      for (var contact in widget.emergencyContacts) {
+        String phoneNumber = contact['number']?.substring(4) ?? ''; // Extract phone number without 'tel:'
 
-      // Send the alert to your backend
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(data),
-      );
-
-      // Check the response from the server
-      if (response.statusCode == 200) {
-        print('Emergency alert sent successfully');
-      } else {
-        print('Failed to send alert: ${response.body}');
+        if (phoneNumber.isNotEmpty) {
+          _sendAlertToContact(phoneNumber, message);
+        }
       }
-    } catch (e) {
-      print('Error occurred while sending alert: $e');
-    } finally {
+
+      // Set the UI after sending alerts
       setState(() {
         _isSending = false; // Set sending state to false after the operation
       });
+
+    } catch (e) {
+      print('Error occurred while sending alert: $e');
+      setState(() {
+        _isSending = false;
+      });
     }
+  }
+
+  // Function to dial the emergency contact
+  void _sendAlertToContact(String phoneNumber, String message) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunch(launchUri.toString())) {
+      await launch(launchUri.toString());
+    } else {
+      throw 'Could not launch $launchUri';
+    }
+
+    // In a real-world scenario, you could send the message via an SMS API.
+    print('Alert sent to $phoneNumber: $message');
   }
 
   @override
@@ -98,7 +104,7 @@ class _SirenPageState extends State<SirenPage> {
             Text(
               _isSending 
                   ? 'Please wait while we notify your contacts.' 
-                  : 'Your emergency contacts and nearby authorities have been notified.',
+                  : 'Your emergency contacts have been notified.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,

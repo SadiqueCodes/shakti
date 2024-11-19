@@ -3,12 +3,12 @@ import 'login_page.dart';
 import 'home_page.dart';
 import 'services/auth_service.dart';
 import 'settings_page.dart';
-import 'emergency_contact_page.dart'; 
+import 'emergency_contact_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  bool isLoggedIn = await AuthService.isLoggedIn();
-  runApp(MyApp(isLoggedIn: isLoggedIn));
+  bool isLoggedIn = await AuthService.isLoggedIn(); // Check if the user is logged in
+  runApp(MyApp(isLoggedIn: isLoggedIn)); // Pass the login status to MyApp
 }
 
 class MyApp extends StatelessWidget {
@@ -22,12 +22,13 @@ class MyApp extends StatelessWidget {
       title: 'LiveSafe App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.pink,
+        primarySwatch: Colors.pink, // Set the app's primary theme color
       ),
+      // Conditionally show either HomePage or LoginPage based on login status
       home: isLoggedIn ? HomePage() : LoginPage(),
       routes: {
         '/settings': (context) => SettingsPage(),
-        // Pass the update function for emergency contacts
+        // Pass the update function for emergency contacts to EmergencyContactPage
         '/emergency_contact': (context) => EmergencyContactPage(
           onContactsUpdated: (contacts) {
             // Handle the updated contacts here, possibly notify HomePage

@@ -58,26 +58,33 @@ class _SettingsPageState extends State<SettingsPage> {
     return age.toString();
   }
 
-  Future<void> _updateUserData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('name', _nameController.text);
-    await prefs.setString('dob', _dobController.text);
-    await prefs.setString('securityQuestion', _selectedSecurityQuestion);
-    await prefs.setString('securityAnswer', _securityAnswerController.text);
-    if (_profileImage != null) {
-      await prefs.setString('profilePic', _profileImage!.path);
-    }
-    Navigator.pop(context);
+ Future<void> _updateUserData() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setString('name', _nameController.text);
+  await prefs.setString('dob', _dobController.text);
+  await prefs.setString('securityQuestion', _selectedSecurityQuestion);  // Saving the security question
+  await prefs.setString('securityAnswer', _securityAnswerController.text); // Saving the answer
+  if (_profileImage != null) {
+    await prefs.setString('profilePic', _profileImage!.path);
   }
+  Navigator.pop(context);
+}
 
-  Future<void> _deleteAccount() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => LoginPage()),
-    );
-  }
+
+  Future<void> _logout() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  
+  // Remove only session data
+  await prefs.setBool('isLoggedIn', false);
+  
+  // Redirect to LoginPage
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (context) => LoginPage()),
+  );
+}
+
+
 
   void _validateDate(String value) {
     final parts = value.split('/');
@@ -92,7 +99,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final month = int.tryParse(parts[1]);
     final year = int.tryParse(parts[2]);
 
-    // Clear error if the value is correct
     if (day != null && month != null && year != null && _isValidDate(day, month, year)) {
       setState(() {
         _errorText = ''; // Clear error if the date is valid
@@ -110,10 +116,8 @@ class _SettingsPageState extends State<SettingsPage> {
       return false;
     }
 
-    // Check for the number of days in the month
     int daysInMonth;
     if (month == 2) {
-      // Check for leap year
       daysInMonth = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) ? 29 : 28;
     } else {
       daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
@@ -147,8 +151,8 @@ class _SettingsPageState extends State<SettingsPage> {
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10), // Adjusted for DD/MM/YYYY format
-                _DateFormatter(), // Custom date formatter to add '/'
+                LengthLimitingTextInputFormatter(10),
+                _DateFormatter(),
               ],
               onChanged: _validateDate,
             ),
@@ -183,9 +187,8 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Text('Update'),
             ),
             ElevatedButton(
-              onPressed: _deleteAccount,
-              child: Text('Delete Account'),
-              
+              onPressed: _logout,
+              child: Text('Log Out'),
             ),
           ],
         ),
@@ -199,8 +202,6 @@ class _DateFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     var text = newValue.text;
-
-    // If the user is deleting, allow backspacing over the slash
     if (oldValue.text.length > text.length) {
       return TextEditingValue(
         text: text,
@@ -210,18 +211,13 @@ class _DateFormatter extends TextInputFormatter {
         ),
       );
     }
-
-    // Remove any existing slashes to reformat the input
     text = text.replaceAll('/', '');
-
-    // Add slashes after day and month
     if (text.length >= 2) {
       text = text.substring(0, 2) + '/' + (text.length > 2 ? text.substring(2) : '');
     }
     if (text.length >= 5) {
       text = text.substring(0, 5) + '/' + (text.length > 5 ? text.substring(5) : '');
     }
-
     return TextEditingValue(
       text: text,
       selection: newValue.selection.copyWith(
