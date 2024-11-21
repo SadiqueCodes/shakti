@@ -1,0 +1,68 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "shakti-f1320",
+          "appId": "1:854527594466:android:d30c344219b41b697033bb",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "shakti-f1320",
+          "configurations": {
+            "android": "1:854527594466:android:d30c344219b41b697033bb",
+            "ios": "1:854527594466:ios:d355113b140010e87033bb",
+            "macos": "1:854527594466:ios:d355113b140010e87033bb",
+            "web": "1:854527594466:web:4ef0d99af7e96a107033bb"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"functions\" run lint"
+      ]
+    }
+  ],
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5002
+    },
+    "firestore": {
+      "port": 8181,
+      "rules": "firestore.rules"
+    },
+    "database": {
+      "port": 9200,
+      "rules": "database.rules.json"
+    },
+    "storage": {
+      "port": 9199,
+      "rules": "storage.rules"
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4001
+    },
+    "singleProjectMode": true
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

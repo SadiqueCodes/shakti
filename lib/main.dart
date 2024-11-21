@@ -4,11 +4,35 @@ import 'home_page.dart';
 import 'services/auth_service.dart';
 import 'settings_page.dart';
 import 'emergency_contact_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Handle background messages
+  print("Handling a background message: ${message.messageId}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  bool isLoggedIn = await AuthService.isLoggedIn(); // Check if the user is logged in
-  runApp(MyApp(isLoggedIn: isLoggedIn)); // Pass the login status to MyApp
+
+  await Firebase.initializeApp(
+    options: FirebaseOptions(
+   apiKey: "AIzaSyD9t89mGzQpfVj6dGcqCSofRDfSuAgZuc4",
+   appId: "1:854527594466:android:d30c344219b41b697033bb",
+   messagingSenderId: "854527594466	",
+   projectId: "shakti-f1320",
+  
+    authDomain: 'shakti-f1320.firebaseapp.com',
+    databaseURL: 'https://shakti-f1320-default-rtdb.firebaseio.com',
+    storageBucket: 'shakti-f1320.appspot.com',
+    ),
+  );
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  bool isLoggedIn = await AuthService.isLoggedIn();
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
@@ -22,19 +46,27 @@ class MyApp extends StatelessWidget {
       title: 'LiveSafe App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.pink, // Set the app's primary theme color
+        primarySwatch: Colors.pink,
       ),
-      // Conditionally show either HomePage or LoginPage based on login status
       home: isLoggedIn ? HomePage() : LoginPage(),
       routes: {
         '/settings': (context) => SettingsPage(),
-        // Pass the update function for emergency contacts to EmergencyContactPage
-        '/emergency_contact': (context) => EmergencyContactPage(
-          onContactsUpdated: (contacts) {
-            // Handle the updated contacts here, possibly notify HomePage
-            print("Emergency contacts updated: $contacts");
-          },
-        ),
+        '/emergency_contact': (context) {
+          String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+          // Ensure userId is not empty before passing it
+          if (userId.isNotEmpty) {
+            return EmergencyContactPage(
+              onContactsUpdated: (contacts) {
+                print("Emergency contacts updated: $contacts");
+              },
+              userId: userId, // Pass userId here
+            );
+          } else {
+            // Handle the case where the user is not logged in (optional)
+            return LoginPage(); // Redirect to login page if no user is found
+          }
+        },
       },
     );
   }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'home_page.dart';
-import 'package:flutter/services.dart'; // For TextInputFormatter
+import 'package:firebase_auth/firebase_auth.dart';  // Firebase Auth import
+import 'home_page.dart';  // Your Home Page import
 
 class LoginPage extends StatefulWidget {
   @override
@@ -22,9 +21,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _checkIfLoggedIn() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool? isLoggedIn = prefs.getBool('isLoggedIn');
-    if (isLoggedIn == true) {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => HomePage()),
@@ -33,33 +31,39 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _registerUser() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('name', _nameController.text);
-    await prefs.setString('email', _emailController.text);
-    await prefs.setString('password', _passwordController.text);
-    await prefs.setString('securityAnswer', "mySecurityAnswer"); // Hardcoded for simplicity
-    await prefs.setString('securityQuestion', "Pet Name"); // Assuming a default security question
-    await prefs.setBool('isLoggedIn', true);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => HomePage()),
-    );
+    try {
+      final UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+      if (userCredential.user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'An error occurred.')),
+      );
+    }
   }
 
   Future<void> _loginUser() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? savedEmail = prefs.getString('email');
-    String? savedPassword = prefs.getString('password');
-
-    if (_emailController.text == savedEmail && _passwordController.text == savedPassword) {
-      await prefs.setBool('isLoggedIn', true);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomePage()),
+    try {
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
       );
-    } else {
+      if (userCredential.user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Incorrect email or password.')),
+        SnackBar(content: Text(e.message ?? 'An error occurred.')),
       );
     }
   }
@@ -111,104 +115,21 @@ class _LoginPageState extends State<LoginPage> {
           actions: [
             TextButton(
               onPressed: () async {
-                SharedPreferences prefs = await SharedPreferences.getInstance();
-                String? savedEmail = prefs.getString('email');
-                if (_emailForPasswordReset.text == savedEmail) {
+                try {
+                  await FirebaseAuth.instance.sendPasswordResetEmail(
+                    email: _emailForPasswordReset.text,
+                  );
                   Navigator.of(context).pop();
-                  _showSecurityQuestionDialog();
-                } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Email not registered.")),
+                    SnackBar(content: Text("Password reset email sent.")),
+                  );
+                } on FirebaseAuthException catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.message ?? "Error sending reset email")),
                   );
                 }
               },
               child: Text("Verify"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text("Cancel"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Show Security Question
-  void _showSecurityQuestionDialog() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? savedSecurityQuestion = prefs.getString('securityQuestion') ?? 'Pet Name'; // Fetch the saved security question
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        TextEditingController _securityAnswerController = TextEditingController();
-        return AlertDialog(
-          title: Text("Security Question"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text("Question: $savedSecurityQuestion"), // Display the user's saved security question
-              TextField(
-                controller: _securityAnswerController,
-                decoration: InputDecoration(labelText: "Enter your answer"),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                String? savedSecurityAnswer = prefs.getString('securityAnswer');
-                
-                if (_securityAnswerController.text == savedSecurityAnswer) {
-                  Navigator.of(context).pop();
-                  _showResetPasswordDialog();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Incorrect answer.")),
-                  );
-                }
-              },
-              child: Text("Verify"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text("Cancel"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Show Reset Password Dialog
-  void _showResetPasswordDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        TextEditingController _newPasswordController = TextEditingController();
-        return AlertDialog(
-          title: Text("Reset Password"),
-          content: TextField(
-            controller: _newPasswordController,
-            decoration: InputDecoration(labelText: "Enter new password"),
-            obscureText: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                SharedPreferences prefs = await SharedPreferences.getInstance();
-                await prefs.setString('password', _newPasswordController.text);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Password updated successfully.")),
-                );
-                Navigator.of(context).pop();
-              },
-              child: Text("Update Password"),
             ),
             TextButton(
               onPressed: () {

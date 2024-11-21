@@ -1,80 +1,109 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // To use SystemChrome.setEnabledSystemUIMode
-import 'package:geolocator/geolocator.dart'; // Geolocation
-import 'package:url_launcher/url_launcher.dart'; // For dialing phone numbers
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class SirenPage extends StatefulWidget {
-  final List<Map<String, String>> emergencyContacts; // Add this to store contacts
+  final String userId;
 
-  SirenPage({Key? key, required this.emergencyContacts}) : super(key: key); // Constructor to accept contacts
+  SirenPage({Key? key, required this.userId}) : super(key: key);
 
   @override
   _SirenPageState createState() => _SirenPageState();
 }
 
 class _SirenPageState extends State<SirenPage> {
-  bool _isSending = false; // Track sending state
+  bool _isSending = false;
+  List<Map<String, String>> emergencyContacts = [];
+  late FirebaseMessaging messaging;
 
   @override
   void initState() {
     super.initState();
-    _sendEmergencyAlert(); // Automatically send alert on initialization
+    messaging = FirebaseMessaging.instance;
+    _loadEmergencyContacts();
   }
 
+  // Load emergency contacts from Firebase
+  Future<void> _loadEmergencyContacts() async {
+    final DatabaseReference _contactsRef = FirebaseDatabase.instance
+        .ref()
+        .child('users')
+        .child(widget.userId)
+        .child('emergencyContacts');
+
+    final DatabaseEvent event = await _contactsRef.once();
+    final contactsData = event.snapshot.value;
+
+    if (contactsData != null) {
+      final List<Map<String, String>> loadedContacts = [];
+      (contactsData as Map).forEach((key, value) {
+        loadedContacts.add({
+          'name': value['name'],
+          'number': value['number'],
+        });
+      });
+
+      setState(() {
+        emergencyContacts = loadedContacts;
+      });
+    }
+  }
+
+  // Send emergency alert with location
   Future<void> _sendEmergencyAlert() async {
     setState(() {
-      _isSending = true; // Set sending state to true
+      _isSending = true;
     });
 
     try {
-      // Get the current location of the user
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
       double latitude = position.latitude;
       double longitude = position.longitude;
 
-      String message = 'Emergency! I need help. My current location is: https://maps.google.com/?q=$latitude,$longitude';
+      String message =
+          'Emergency! I need help. My location: https://maps.google.com/?q=$latitude,$longitude';
 
-      // Iterate through all emergency contacts and send the alert
-      for (var contact in widget.emergencyContacts) {
-        String phoneNumber = contact['number']?.substring(4) ?? ''; // Extract phone number without 'tel:'
+      // Call the Firebase Function to send notifications
+      await _sendNotificationToServer(message);
 
-        if (phoneNumber.isNotEmpty) {
-          _sendAlertToContact(phoneNumber, message);
-        }
-      }
-
-      // Set the UI after sending alerts
       setState(() {
-        _isSending = false; // Set sending state to false after the operation
+        _isSending = false;
       });
-
     } catch (e) {
-      print('Error occurred while sending alert: $e');
+      print('Error occurred: $e');
       setState(() {
         _isSending = false;
       });
     }
   }
 
-  // Function to dial the emergency contact
-  void _sendAlertToContact(String phoneNumber, String message) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
-    if (await canLaunch(launchUri.toString())) {
-      await launch(launchUri.toString());
-    } else {
-      throw 'Could not launch $launchUri';
-    }
+  // Call Firebase Function to send notification
+  Future<void> _sendNotificationToServer(String message) async {
+    try {
+      // Use Firebase Functions or a backend endpoint to send the notification
+      DatabaseReference ref = FirebaseDatabase.instance
+          .ref()
+          .child('notifications')
+          .push(); // Example path in the database
 
-    // In a real-world scenario, you could send the message via an SMS API.
-    print('Alert sent to $phoneNumber: $message');
+      await ref.set({
+        'userId': widget.userId,
+        'emergencyContacts': emergencyContacts,
+        'message': message,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      print('Notification data pushed to the server.');
+    } catch (e) {
+      print('Failed to send notification to the server: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Change the status bar to a transparent style
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
     return Scaffold(
@@ -86,49 +115,36 @@ class _SirenPageState extends State<SirenPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.warning,
-              size: 100,
-              color: Colors.red,
-            ),
+            Icon(Icons.warning, size: 100, color: Colors.red),
             SizedBox(height: 20),
             Text(
               _isSending ? 'Sending Alert...' : 'Emergency Alert Sent!',
               style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
+                  fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red),
             ),
             SizedBox(height: 10),
             Text(
-              _isSending 
-                  ? 'Please wait while we notify your contacts.' 
+              _isSending
+                  ? 'Please wait while we notify your contacts.'
                   : 'Your emergency contacts have been notified.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.black54),
             ),
             SizedBox(height: 40),
-            if (!_isSending) // Show this button only when alert has been sent
+            if (!_isSending)
               ElevatedButton(
-                onPressed: () {
-                  // Navigate back to home page
-                  Navigator.pop(context);
-                },
+                onPressed: () => Navigator.pop(context),
                 child: Text('Return Home'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red, // Button color
-                  foregroundColor: Colors.white, // Text color
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 ),
               ),
           ],
         ),
       ),
-      backgroundColor: Colors.white, // Set background color
+      backgroundColor: Colors.white,
     );
   }
 }

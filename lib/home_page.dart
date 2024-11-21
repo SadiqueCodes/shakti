@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'widgets/carousel_widget.dart';
 import 'widgets/emergency_card_widget.dart';
-// Ensure this import is correct
 import 'widgets/explore_icon_widget.dart';
 import 'siren_page.dart'; // Import SirenPage
 import 'emergency_contact_page.dart'; // Import EmergencyContactPage
-import 'package:badges/badges.dart' as badgePackage; // Import badges package with alias
+import 'package:badges/badges.dart' as badgePackage;
 
 class HomePage extends StatefulWidget {
   @override
@@ -13,21 +13,18 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // List to hold emergency contacts
   List<Map<String, String>> emergencyContacts = [];
-  bool _hasAlertNotification = false; // Track if there's an alert
+  bool _hasAlertNotification = false;
 
-  // Function to update emergency contacts
   void _updateEmergencyContacts(List<Map<String, String>> contacts) {
     setState(() {
       emergencyContacts = contacts;
     });
   }
 
-  // Function to trigger the alert notification
   void _triggerAlertNotification() {
     setState(() {
-      _hasAlertNotification = true; // Set notification flag
+      _hasAlertNotification = true;
     });
   }
 
@@ -53,21 +50,20 @@ class _HomePageState extends State<HomePage> {
               children: [
                 IconButton(
                   icon: badgePackage.Badge(
-                    showBadge: _hasAlertNotification, // Show badge if there's a notification
+                    showBadge: _hasAlertNotification,
                     badgeContent: Text('!', style: TextStyle(color: Colors.white)),
                     child: Icon(Icons.notifications, color: Colors.black),
                   ),
                   onPressed: () {
-                    // Handle notification icon tap
                     setState(() {
-                      _hasAlertNotification = false; // Reset notification when viewed
+                      _hasAlertNotification = false;
                     });
                   },
                 ),
                 IconButton(
                   icon: Icon(Icons.settings, color: Colors.black),
                   onPressed: () {
-                    Navigator.pushNamed(context, '/settings'); // Navigate to SettingsPage
+                    Navigator.pushNamed(context, '/settings');
                   },
                 ),
               ],
@@ -112,7 +108,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: EmergencyCardWidget(emergencyContacts: emergencyContacts), // Pass the contacts here
+              child: EmergencyCardWidget(emergencyContacts: emergencyContacts),
             ),
             const SizedBox(height: 20),
             const SizedBox(height: 20),
@@ -143,12 +139,23 @@ class _HomePageState extends State<HomePage> {
           if (index == 0) {
             Navigator.pushNamed(context, '/home');
           } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => EmergencyContactPage(
-                onContactsUpdated: _updateEmergencyContacts,
-              )),
-            );
+            String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+            if (userId.isNotEmpty) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EmergencyContactPage(
+                    onContactsUpdated: _updateEmergencyContacts,
+                    userId: userId,
+                  ),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('User is not logged in')),
+              );
+            }
           }
         },
         selectedItemColor: Colors.pink,
@@ -165,10 +172,22 @@ class _HomePageState extends State<HomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => SirenPage(emergencyContacts: emergencyContacts)),
-          );
+          String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+          if (userId.isNotEmpty) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SirenPage(
+      userId: userId,
+                ),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('User is not logged in')),
+            );
+          }
         },
         backgroundColor: Colors.red,
         child: Icon(Icons.security),

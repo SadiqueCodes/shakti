@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "854527594466",
+    "firebase_url": "https://shakti-f1320-default-rtdb.firebaseio.com",
+    "project_id": "shakti-f1320",
+    "storage_bucket": "shakti-f1320.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:854527594466:android:d30c344219b41b697033bb",
+        "android_client_info": {
+          "package_name": "com.shakti_mitr.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9t89mGzQpfVj6dGcqCSofRDfSuAgZuc4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

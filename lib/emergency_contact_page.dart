@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class EmergencyContactPage extends StatefulWidget {
   final Function(List<Map<String, String>>) onContactsUpdated;
+  final String userId;
 
-  EmergencyContactPage({required this.onContactsUpdated});
+  EmergencyContactPage({required this.onContactsUpdated, required this.userId});
 
   @override
   _EmergencyContactPageState createState() => _EmergencyContactPageState();
@@ -17,35 +17,54 @@ class _EmergencyContactPageState extends State<EmergencyContactPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _numberController = TextEditingController(text: '+91 ');
   List<Map<String, String>> emergencyContacts = [];
+  late DatabaseReference _contactsRef;
 
   @override
   void initState() {
     super.initState();
+    _contactsRef = FirebaseDatabase.instance
+        .ref()
+        .child('users')
+        .child(widget.userId)
+        .child('emergencyContacts');
     _loadContacts();
   }
 
   Future<void> _loadContacts() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? savedContacts = prefs.getString('emergencyContacts');
-    if (savedContacts != null) {
-      List<Map<String, String>> decodedContacts = (jsonDecode(savedContacts) as List)
-          .map((item) => Map<String, String>.from(item))
-          .toList();
+    final DatabaseEvent event = await _contactsRef.once();
+    final contactsData = event.snapshot.value;
+
+    if (contactsData != null) {
+      final List<Map<String, String>> loadedContacts = [];
+      (contactsData as Map).forEach((key, value) {
+        loadedContacts.add({
+          'name': value['name'],
+          'number': value['number'],
+        });
+      });
+
       setState(() {
-        emergencyContacts = decodedContacts;
+        emergencyContacts = loadedContacts;
       });
     }
   }
 
   Future<void> _saveContacts() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString('emergencyContacts', jsonEncode(emergencyContacts));
+    final Map<String, Map<String, String>> contactsMap = {};
+    for (int i = 0; i < emergencyContacts.length; i++) {
+      contactsMap['contact_$i'] = {
+        'name': emergencyContacts[i]['name']!,
+        'number': emergencyContacts[i]['number']!,
+      };
+    }
+
+    await _contactsRef.set(contactsMap);
   }
 
- bool _isValidIndianPhoneNumber(String number) {
-  final RegExp phoneRegex = RegExp(r'^\+91\s\d{10}$'); // Updated regex to allow any 10 digits
-  return phoneRegex.hasMatch(number);
-}
+  bool _isValidIndianPhoneNumber(String number) {
+    final RegExp phoneRegex = RegExp(r'^\+91\s\d{10}$');
+    return phoneRegex.hasMatch(number);
+  }
 
   void _addContact() {
     if (_nameController.text.isNotEmpty && _numberController.text.isNotEmpty) {
@@ -53,9 +72,9 @@ class _EmergencyContactPageState extends State<EmergencyContactPage> {
         setState(() {
           emergencyContacts.add({
             'name': _nameController.text,
-            'number': 'tel:${_numberController.text}',
+            'number': _numberController.text,
           });
-          _saveContacts(); // Save contacts after adding a new one
+          _saveContacts();
           _nameController.clear();
           _numberController.text = '+91 ';
         });
@@ -69,8 +88,12 @@ class _EmergencyContactPageState extends State<EmergencyContactPage> {
   }
 
   void _makeCall(String number) async {
-    if (await canLaunch(number)) {
-      await launch(number);
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: number,
+    );
+    if (await canLaunch(launchUri.toString())) {
+      await launch(launchUri.toString());
     } else {
       throw 'Could not launch $number';
     }
