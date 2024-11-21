@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.live_safe_app"
+    namespace = "com.shakti_mitr.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,8 +23,8 @@ android {
 
     defaultConfig {
         // Make sure the applicationId matches your Flutter app's package name
-        applicationId = "com.example.live_safe_app"
-        minSdk = flutter.minSdkVersion
+        applicationId = "com.shakti_mitr.app"
+        minSdk = 23 // Updated to meet Firebase Auth requirements
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -44,7 +44,7 @@ flutter {
 dependencies {
     implementation platform('com.google.firebase:firebase-bom:30.0.0')  // Firebase BOM for consistent SDK versions
     implementation 'com.google.firebase:firebase-database'  // Firebase Realtime Database dependency
-    implementation 'com.google.firebase:firebase-auth'  // If you are using Firebase Authentication
+    implementation 'com.google.firebase:firebase-auth'  // Firebase Authentication
 }
 
 apply plugin: 'com.google.gms.google-services'  // Apply the plugin at the bottom

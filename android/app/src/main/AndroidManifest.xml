@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.live_safe_app">
+    package="com.shakti_mitr.app">
     
     <!-- Add required permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
